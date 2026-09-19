@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Treasure Quest</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Arial, Helvetica, sans-serif;
+    background: linear-gradient(135deg, #ffeaa7, #81ecec, #a29bfe, #fab1a0);
+    background-size: 300% 300%;
+    animation: bg 12s ease infinite;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #2d3436;
+  }
+
+  @keyframes bg {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .shell {
+    width: min(95vw, 790px);
+    background: rgba(255,255,255,.95);
+    border: 4px solid white;
+    border-radius: 24px;
+    padding: 18px;
+    box-shadow: 0 18px 45px rgba(0,0,0,.22);
+  }
+
+  h1 {
+    margin: 0;
+    text-align: center;
+    color: #6c5ce7;
+    font-size: clamp(28px, 5vw, 44px);
+  }
+
+  .tagline {
+    text-align: center;
+    margin: 5px 0 14px;
+    font-weight: bold;
+    color: #636e72;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .stat {
+    background: white;
+    border-radius: 14px;
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,.08);
+  }
+
+  .stat span {
+    display: block;
+    font-size: 22px;
+    color: #0984e3;
+    margin-top: 3px;
+  }
+
+  .game-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+
+  canvas {
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 1 / 1;
+    border: 6px solid #6c5ce7;
+    border-radius: 18px;
+    background: #dff9fb;
+    image-rendering: pixelated;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .panel {
+    width: min(84%, 460px);
+    background: rgba(255,255,255,.96);
+    border-radius: 22px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 14px 32px rgba(0,0,0,.25);
+  }
+
+  .panel h2 {
+    color: #e84393;
+    margin-top: 0;
+  }
+
+  button {
+    border: 0;
+    border-radius: 14px;
+    padding: 11px 18px;
+    font-size: 17px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #6c5ce7, #00cec9);
+    color: white;
+    cursor: pointer;
+  }
+
+  .message {
+    min-height: 34px;
+    margin: 10px 0 0;
+    text-align: center;
+    font-weight: bold;
+    color: #d63031;
+  }
+
+  .instructions {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #f8f9fa;
+    line-height: 1.45;
+    font-size: 14px;
+  }
+
+  .mobile {
+    display: grid;
+    grid-template-columns: 64px 64px 64px;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 12px;
+  }
+
+  .mobile button {
+    padding: 10px;
+    font-size: 19px;
+    background: #74b9ff;
+  }
+
+  .blank { visibility: hidden; }
+
+  @media(max-width: 560px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media(min-width: 800px) {
+    .mobile { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <h1>🐍 Snake Treasure Quest 💎</h1>
+  <div class="tagline">Find the gems. Unlock the chest. Beat the clock!</div>
+
+  <div class="stats">
+    <div class="stat">Prizes<span id="prizes">0</span></div>
+    <div class="stat">Gems<span id="gems">0 / 3</span></div>
+    <div class="stat">Time<span id="time">75</span></div>
+    <div class="stat">Level<span id="level">1</span></div>
+  </div>
+
+  <div class="game-wrap">
+    <canvas id="game" width="600" height="600"></canvas>
+
+    <div class="overlay" id="overlay">
+      <div class="panel">
+        <h2 id="title">Treasure Adventure!</h2>
+        <p id="panelText">
+          Collect all 3 gems to unlock the treasure chest. Use portals, avoid rocks,
+          and grab clocks for extra time.
+        </p>
+        <button id="startBtn">Start Quest</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="message" id="message">Collect 3 gems to unlock the chest!</div>
+
+  <div class="mobile">
+    <span class="blank"></span>
+    <button data-dir="up">⬆️</button>
+    <span class="blank"></span>
+    <button data-dir="left">⬅️</button>
+    <button data-dir="down">⬇️</button>
+    <button data-dir="right">➡️</button>
+  </div>
+
+  <div class="instructions">
+    <strong>How to play:</strong> Use the <strong>arrow keys</strong> to guide the snake.
+    Collect <strong>3 gems 💎</strong> to unlock the <strong>treasure chest 🎁</strong>.
+    Each chest counts as a prize. <strong>Magic portals 🌀</strong> teleport you across the map,
+    and <strong>clocks ⏰</strong> add 8 seconds. Avoid rocks and your own tail.
+    Finish as many treasure levels as you can before time runs out.
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const prizesEl = document.getElementById("prizes");
+const gemsEl = document.getElementById("gems");
+const timeEl = document.getElementById("time");
+const levelEl = document.getElementById("level");
+const messageEl = document.getElementById("message");
+const overlay = document.getElementById("overlay");
+const titleEl = document.getElementById("title");
+const panelText = document.getElementById("panelText");
+const startBtn = document.getElementById("startBtn");
+
+const size = 20;
+const cols = canvas.width / size;
+
+let snake, direction, nextDirection;
+let gems, chest, clockBonus, rocks, portals;
+let gemsFound, prizes, level, timeLeft;
+let running = false;
+let moveLoop = null;
+let clockLoop = null;
+let clockRespawn = null;
+let portalCooldown = false;
+
+function randCell() {
+  return {
+    x: Math.floor(Math.random() * cols),
+    y: Math.floor(Math.random() * cols)
+  };
+}
+
+function same(a,b) {
+  return a && b && a.x === b.x && a.y === b.y;
+}
+
+function blocked(pos, includeSnake = true) {
+  if (includeSnake && snake && snake.some(s => same(s,pos))) return true;
+  if (rocks && rocks.some(r => same(r,pos))) return true;
+  if (gems && gems.some(g => same(g,pos))) return true;
+  if (chest && same(chest,pos)) return true;
+  if (clockBonus && same(clockBonus,pos)) return true;
+  if (portals && portals.some(p => same(p,pos))) return true;
+  return false;
+}
+
+function openCell() {
+  let p, tries = 0;
+  do {
+    p = randCell();
+    tries++;
+  } while (blocked(p) && tries < 1000);
+  return p;
+}
+
+function buildLevel() {
+  snake = [
+    {x: 3, y: 15},
+    {x: 2, y: 15},
+    {x: 1, y: 15}
+  ];
+
+  direction = {x:1, y:0};
+  nextDirection = {x:1, y:0};
+
+  gemsFound = 0;
+  gems = [];
+  rocks = [];
+  portals = [];
+  chest = null;
+  clockBonus = null;
+  portalCooldown = false;
+
+  // Create obstacle rocks. More rocks appear as levels increase.
+  const rockCount = Math.min(18 + level * 3, 42);
+  for (let i = 0; i < rockCount; i++) {
+    const p = openCell();
+    // keep starting corner safer
+    if (p.x < 7 && p.y > 11) { i--; continue; }
+    rocks.push(p);
+  }
+
+  for (let i = 0; i < 3; i++) gems.push(openCell());
+
+  portals.push(openCell());
+  portals.push(openCell());
+
+  chest = openCell();
+  clockBonus = openCell();
+
+  updateHUD();
+  messageEl.textContent = "Collect 3 gems to unlock the chest!";
+  draw();
+}
+
+function updateHUD() {
+  prizesEl.textContent = prizes;
+  gemsEl.textContent = `${gemsFound} / 3`;
+  timeEl.textContent = timeLeft;
+  levelEl.textContent = level;
+}
+
+function startGame() {
+  clearInterval(moveLoop);
+  clearInterval(clockLoop);
+  clearTimeout(clockRespawn);
+
+  prizes = 0;
+  level = 1;
+  timeLeft = 75;
+  running = true;
+  overlay.style.display = "none";
+
+  buildLevel();
+
+  moveLoop = setInterval(step, 125);
+
+  clockLoop = setInterval(() => {
+    if (!running) return;
+    timeLeft--;
+    updateHUD();
+    if (timeLeft <= 0) finish("Time's up!");
+  }, 1000);
+}
+
+function step() {
+  if (!running) return;
+
+  direction = nextDirection;
+
+  let head = {
+    x: snake[0].x + direction.x,
+    y: snake[0].y + direction.y
+  };
+
+  // Wall collision
+  if (head.x < 0 || head.x >= cols || head.y < 0 || head.y >= cols) {
+    finish("You hit the edge of the treasure island!");
+    return;
+  }
+
+  // Rock collision
+  if (rocks.some(r => same(r,head))) {
+    finish("The snake bumped into a rock!");
+    return;
+  }
+
+  // Self collision
+  if (snake.some((s,i) => i < snake.length - 1 && same(s,head))) {
+    finish("The snake tangled up its tail!");
+    return;
+  }
+
+  snake.unshift(head);
+
+  let keepTail = false;
+
+  // Gem collection
+  const gemIndex = gems.findIndex(g => same(g,head));
+  if (gemIndex >= 0) {
+    gems.splice(gemIndex,1);
+    gemsFound++;
+    keepTail = true;
+    gemsEl.textContent = `${gemsFound} / 3`;
+
+    if (gemsFound === 3) {
+      messageEl.textContent = "✨ Treasure chest unlocked! Find the chest!";
+    } else {
+      messageEl.textContent = `Nice! ${3 - gemsFound} gem${3 - gemsFound === 1 ? "" : "s"} left.`;
+    }
+  }
+
+  // Time bonus
+  if (clockBonus && same(head, clockBonus)) {
+    timeLeft += 8;
+    messageEl.textContent = "⏰ Time bonus! +8 seconds";
+    clockBonus = null;
+    updateHUD();
+
+    clearTimeout(clockRespawn);
+    clockRespawn = setTimeout(() => {
+      if (running && !clockBonus) clockBonus = openCell();
+    }, 7000);
+  }
+
+  // Portal transport
+  const portalIndex = portals.findIndex(p => same(p, head));
+  if (portalIndex >= 0 && !portalCooldown) {
+    const target = portals[portalIndex === 0 ? 1 : 0];
+    snake[0] = {x: target.x, y: target.y};
+    portalCooldown = true;
+    messageEl.textContent = "🌀 Whoosh! Magic portal!";
+    setTimeout(() => portalCooldown = false, 600);
+  }
+
+  // Chest can only be collected after 3 gems
+  if (chest && same(snake[0], chest)) {
+    if (gemsFound === 3) {
+      prizes++;
+      level++;
+      timeLeft += 5;
+      updateHUD();
+      messageEl.textContent = "🎉 Treasure found! New level!";
+      buildLevel();
+      return;
+    } else {
+      messageEl.textContent = `🔒 Chest locked! Find ${3 - gemsFound} more gem${3 - gemsFound === 1 ? "" : "s"}.`;
+    }
+  }
+
+  if (!keepTail) snake.pop();
+
+  draw();
+}
+
+function finish(reason) {
+  running = false;
+  clearInterval(moveLoop);
+  clearInterval(clockLoop);
+  clearTimeout(clockRespawn);
+
+  titleEl.textContent = "Quest Over";
+  panelText.innerHTML =
+    `${reason}<br><br>You collected <strong>${prizes}</strong> treasure prize${prizes === 1 ? "" : "s"} and reached level <strong>${level}</strong>.`;
+  startBtn.textContent = "Play Again";
+  overlay.style.display = "flex";
+}
+
+function drawTileEmoji(item, emoji, font = 18) {
+  if (!item) return;
+  ctx.font = `${font}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    emoji,
+    item.x * size + size / 2,
+    item.y * size + size / 2 + 1
+  );
+}
+
+function draw() {
+  // Adventure board
+  for (let y = 0; y < cols; y++) {
+    for (let x = 0; x < cols; x++) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? "#dff9fb" : "#c7ecee";
+      ctx.fillRect(x * size, y * size, size, size);
+    }
+  }
+
+  // Decorative paths
+  ctx.fillStyle = "rgba(253,203,110,.18)";
+  for (let y = 5; y < 25; y++) {
+    ctx.fillRect(9 * size, y * size, 3 * size, size);
+  }
+
+  rocks.forEach(r => drawTileEmoji(r, "🪨", 17));
+  gems.forEach(g => drawTileEmoji(g, "💎", 17));
+  portals.forEach(p => drawTileEmoji(p, "🌀", 18));
+  drawTileEmoji(clockBonus, "⏰", 18);
+
+  // Locked vs unlocked chest
+  drawTileEmoji(chest, gemsFound === 3 ? "🎁" : "🔒", 18);
+
+  // Snake
+  snake.forEach((part, i) => {
+    const px = part.x * size + 2;
+    const py = part.y * size + 2;
+
+    ctx.fillStyle = i === 0 ? "#00b894" : "#55efc4";
+    ctx.beginPath();
+    ctx.roundRect(px, py, size - 4, size - 4, 6);
+    ctx.fill();
+
+    if (i === 0) {
+      ctx.fillStyle = "#2d3436";
+      ctx.beginPath();
+      ctx.arc(px + 6, py + 6, 1.7, 0, Math.PI*2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px + 12, py + 6, 1.7, 0, Math.PI*2);
+      ctx.fill();
+    }
+  });
+}
+
+function setDir(name) {
+  if (!running) return;
+
+  const d = {
+    up: {x:0,y:-1},
+    down: {x:0,y:1},
+    left: {x:-1,y:0},
+    right: {x:1,y:0}
+  }[name];
+
+  if (!d) return;
+  if (d.x === -direction.x && d.y === -direction.y) return;
+
+  nextDirection = d;
+}
+
+document.addEventListener("keydown", e => {
+  const map = {
+    ArrowUp: "up",
+    ArrowDown: "down",
+    ArrowLeft: "left",
+    ArrowRight: "right"
+  };
+
+  if (map[e.key]) {
+    e.preventDefault();
+    setDir(map[e.key]);
+  }
+});
+
+document.querySelectorAll("[data-dir]").forEach(btn => {
+  btn.addEventListener("click", () => setDir(btn.dataset.dir));
+});
+
+startBtn.addEventListener("click", startGame);
+
+// Initial preview
+prizes = 0;
+level = 1;
+timeLeft = 75;
+buildLevel();
+</script>
+</body>
+</html>
